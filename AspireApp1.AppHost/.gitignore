@@ -1,0 +1,9 @@
+# .gitignore for AspireApp1.AppHost project
+/bin/
+/obj/
+.vscode/
+*.user
+*.suo
+.env
+.env.*
+aspire-output/.env*

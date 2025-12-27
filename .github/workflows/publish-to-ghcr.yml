@@ -1,0 +1,44 @@
+name: Build and publish server image to Docker Hub
+
+on:
+  push:
+    branches: ["main", "master"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log into Docker Hub
+        uses: docker/login-action@v2
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: AspireApp1.Server/Dockerfile
+          push: true
+          tags: |
+            docker.io/${{ secrets.DOCKER_USERNAME }}/aspireapp1-server:latest
+            docker.io/${{ secrets.DOCKER_USERNAME }}/aspireapp1-server:${{ github.sha }}
+          cache-from: type=registry,ref=docker.io/${{ secrets.DOCKER_USERNAME }}/aspireapp1-server:cache
+          cache-to: type=registry,ref=docker.io/${{ secrets.DOCKER_USERNAME }}/aspireapp1-server:cache,mode=max
+
+      - name: Output image name
+        run: echo "SERVER_IMAGE=docker.io/${{ secrets.DOCKER_USERNAME }}/aspireapp1-server:${{ github.sha }}" >> $GITHUB_OUTPUT
