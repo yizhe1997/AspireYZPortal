@@ -23,7 +23,9 @@ services:
     networks:
       - "aspire"
   server:
-    image: "${SERVER_IMAGE}"
+    image: "${SERVER_IMAGE:-docker.io/your-docker-username/aspireapp1-server:latest}"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     environment:
       OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES: "true"
       OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES: "true"
@@ -43,6 +45,25 @@ services:
     depends_on:
       cache:
         condition: "service_started"
+    networks:
+      - "aspire"
+  frontend:
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile
+    image: "${FRONTEND_IMAGE:-docker.io/your-docker-username/aspireapp1-frontend:latest}"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    ports:
+      - "80:80"
+    networks:
+      - "aspire"
+  watchtower:
+    image: containrrr/watchtower:latest
+    command: --interval 300 --cleanup --label-enable
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: always
     networks:
       - "aspire"
 networks:

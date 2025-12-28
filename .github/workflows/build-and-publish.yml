@@ -1,4 +1,4 @@
-name: Build and publish server image to Docker Hub
+name: Build and publish images to Docker Hub
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push image
+      - name: Build and push server image
         uses: docker/build-push-action@v4
         with:
           context: .
@@ -40,5 +40,20 @@ jobs:
           cache-from: type=registry,ref=docker.io/${{ secrets.DOCKER_USERNAME }}/aspireapp1-server:cache
           cache-to: type=registry,ref=docker.io/${{ secrets.DOCKER_USERNAME }}/aspireapp1-server:cache,mode=max
 
-      - name: Output image name
+      - name: Output server image name
         run: echo "SERVER_IMAGE=docker.io/${{ secrets.DOCKER_USERNAME }}/aspireapp1-server:${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: frontend/Dockerfile
+          push: true
+          tags: |
+            docker.io/${{ secrets.DOCKER_USERNAME }}/aspireapp1-frontend:latest
+            docker.io/${{ secrets.DOCKER_USERNAME }}/aspireapp1-frontend:${{ github.sha }}
+          cache-from: type=registry,ref=docker.io/${{ secrets.DOCKER_USERNAME }}/aspireapp1-frontend:cache
+          cache-to: type=registry,ref=docker.io/${{ secrets.DOCKER_USERNAME }}/aspireapp1-frontend:cache,mode=max
+
+      - name: Output frontend image name
+        run: echo "FRONTEND_IMAGE=docker.io/${{ secrets.DOCKER_USERNAME }}/aspireapp1-frontend:${{ github.sha }}" >> $GITHUB_OUTPUT
