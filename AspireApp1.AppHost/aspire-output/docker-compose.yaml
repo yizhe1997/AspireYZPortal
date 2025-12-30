@@ -41,7 +41,7 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "server"
     ports:
-      - "${SERVER_PORT}"
+      - "${SERVER_PORT}:8080"
     depends_on:
       cache:
         condition: "service_started"
