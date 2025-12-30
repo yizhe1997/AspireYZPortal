@@ -13,7 +13,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("LocalFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:8081")
+        policy.WithOrigins("http://localhost:8081", "https://yzportal.38569123.xyz")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
