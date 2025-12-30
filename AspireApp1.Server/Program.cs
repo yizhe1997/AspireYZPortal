@@ -8,6 +8,18 @@ builder.AddRedisClientBuilder("cache")
 // Add services to the container.
 builder.Services.AddProblemDetails();
 
+// Add CORS to allow frontend on localhost:8081 to call the API directly
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("LocalFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:8081")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
@@ -20,6 +32,9 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+// Enable CORS
+app.UseCors("LocalFrontend");
 
 app.UseOutputCache();
 
