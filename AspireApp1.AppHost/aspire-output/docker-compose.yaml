@@ -55,7 +55,7 @@ services:
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     ports:
-      - "80:80"
+      - "8081:80"
     networks:
       - "aspire"
   watchtower:
