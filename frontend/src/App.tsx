@@ -20,7 +20,9 @@ function App() {
     setError(null)
     
     try {
-      const response = await fetch('/api/weatherforecast')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const apiBase = (window as any).__ENV?.API_URL ?? '/api'
+      const response = await fetch(`${apiBase}/weatherforecast`)
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)

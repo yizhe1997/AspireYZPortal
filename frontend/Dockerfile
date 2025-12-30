@@ -17,5 +17,8 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # Remove default nginx.conf and use a simple one to serve SPA (fallback to index.html)
 RUN rm /etc/nginx/conf.d/default.conf
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY frontend/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 EXPOSE 80
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]
