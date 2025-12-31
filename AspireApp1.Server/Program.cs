@@ -1,3 +1,4 @@
+using AspireApp1.Server;
 using OpenTelemetry.Exporter;
 
 var builder = WebApplication.CreateBuilder(args);

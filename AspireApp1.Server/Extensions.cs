@@ -4,7 +4,7 @@ using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 
-namespace Microsoft.Extensions.Hosting;
+namespace AspireApp1.Server;
 
 // Adds common Aspire services: service discovery, resilience, health checks, and OpenTelemetry.
 // This project should be referenced by each service project in your solution.
@@ -40,7 +40,7 @@ public static class Extensions
                 {
                     policy.RequireAssertion(context =>
                     {
-                        if (context.Resource is Microsoft.AspNetCore.Http.HttpContext httpContext)
+                        if (context.Resource is HttpContext httpContext)
                         {
                             var apiKey = httpContext.Request.Headers["X-Health-Check-Key"].FirstOrDefault();
                             return apiKey == healthCheckApiKey;
