@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using OpenTelemetry.Exporter;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,9 +32,6 @@ if (!string.IsNullOrEmpty(dashboardApiKey))
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-builder.Services.AddRequestTimeouts();
-builder.Services.AddOutputCache();
-
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -69,9 +65,6 @@ api.MapGet("weatherforecast", () =>
 app.MapDefaultEndpoints();
 
 app.UseFileServer();
-
-app.UseRequestTimeouts();
-app.UseOutputCache();
 
 app.Run();
 

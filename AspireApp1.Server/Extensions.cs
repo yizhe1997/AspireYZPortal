@@ -7,7 +7,6 @@ using Microsoft.Extensions.ServiceDiscovery;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
-using Microsoft.AspNetCore.Authorization;
 
 namespace Microsoft.Extensions.Hosting;
 
@@ -35,30 +34,6 @@ public static class Extensions
             // Turn on service discovery by default
             http.AddServiceDiscovery();
         });
-
-        // Add authorization for health check endpoints
-        builder.Services.AddAuthorizationBuilder()
-            .AddPolicy("HealthCheckPolicy", policy =>
-            {
-                var healthCheckApiKey = builder.Configuration["HealthCheck:ApiKey"];
-                if (!string.IsNullOrEmpty(healthCheckApiKey))
-                {
-                    policy.RequireAssertion(context =>
-                    {
-                        if (context.Resource is Microsoft.AspNetCore.Http.HttpContext httpContext)
-                        {
-                            var apiKey = httpContext.Request.Headers["X-Health-Check-Key"].FirstOrDefault();
-                            return apiKey == healthCheckApiKey;
-                        }
-                        return false;
-                    });
-                }
-                else
-                {
-                    // If no API key configured, allow anonymous access
-                    policy.RequireAssertion(_ => true);
-                }
-            });
 
         // Uncomment the following to restrict the allowed schemes for service discovery.
         // builder.Services.Configure<ServiceDiscoveryOptions>(options =>
@@ -124,15 +99,6 @@ public static class Extensions
 
     public static TBuilder AddDefaultHealthChecks<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
     {
-        builder.Services.AddRequestTimeouts(
-        configure: static timeouts =>
-            timeouts.AddPolicy("HealthChecks", TimeSpan.FromSeconds(5)));
-
-        builder.Services.AddOutputCache(
-            configureOptions: static caching =>
-                caching.AddPolicy("HealthChecks",
-                build: static policy => policy.Expire(TimeSpan.FromSeconds(10))));
-
         builder.Services.AddHealthChecks()
             // Add a default liveness check to ensure app is responsive
             .AddCheck("self", () => HealthCheckResult.Healthy(), ["live"]);
@@ -142,44 +108,19 @@ public static class Extensions
 
     public static WebApplication MapDefaultEndpoints(this WebApplication app)
     {
-        var healthChecks = app.MapGroup("");
-
-        healthChecks
-            .CacheOutput("HealthChecks")
-            .WithRequestTimeout("HealthChecks");
-
-        // Readiness endpoint - all health checks must pass
-        // Requires API key via X-Health-Check-Key header if configured
-        app.MapHealthChecks(HealthEndpointPath, new HealthCheckOptions
+        // Adding health checks endpoints to applications in non-development environments has security implications.
+        // See https://aka.ms/dotnet/aspire/healthchecks for details before enabling these endpoints in non-development environments.
+        if (app.Environment.IsDevelopment())
         {
-            AllowCachingResponses = false,
-            ResponseWriter = async (context, report) =>
+            // All health checks must pass for app to be considered ready to accept traffic after starting
+            app.MapHealthChecks(HealthEndpointPath);
+
+            // Only health checks tagged with the "live" tag must pass for app to be considered alive
+            app.MapHealthChecks(AlivenessEndpointPath, new HealthCheckOptions
             {
-                context.Response.ContentType = "application/json";
-                var result = System.Text.Json.JsonSerializer.Serialize(new
-                {
-                    status = report.Status.ToString(),
-                    checks = report.Entries.Select(entry => new
-                    {
-                        name = entry.Key,
-                        status = entry.Value.Status.ToString(),
-                        exception = entry.Value.Exception?.Message,
-                        duration = entry.Value.Duration.ToString()
-                    })
-                });
-                await context.Response.WriteAsync(result);
-            }
-        })
-        .RequireAuthorization("HealthCheckPolicy");
-
-        // Liveness endpoint - only checks tagged with "live"
-        // No API key required for liveness (needed for container orchestrators)
-        app.MapHealthChecks(AlivenessEndpointPath, new HealthCheckOptions
-        {
-            Predicate = r => r.Tags.Contains("live"),
-            AllowCachingResponses = false
-        })
-        .AllowAnonymous();
+                Predicate = r => r.Tags.Contains("live")
+            });
+        }
 
         return app;
     }
