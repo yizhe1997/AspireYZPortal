@@ -3,6 +3,10 @@ services:
     image: "mcr.microsoft.com/dotnet/nightly/aspire-dashboard:latest"
     ports:
       - "18888:18888"
+      - "4317:18889"
+    environment:
+      DASHBOARD__OTLP__AUTHMODE: "ApiKey"
+      DASHBOARD__OTLP__PRIMARYAPIKEY: "${DASHBOARD_PRIMARY_APIKEY}"
     expose:
       - "18889"
       - "18890"
@@ -40,6 +44,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://env-dashboard:18889"
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "server"
+      OTEL_EXPORTER_OTLP_HEADERS: "x-otlp-api-key=${DASHBOARD_PRIMARY_APIKEY}"
     ports:
       - "${SERVER_PORT}:80"
     depends_on:
