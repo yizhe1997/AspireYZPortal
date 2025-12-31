@@ -1,5 +1,3 @@
-using OpenTelemetry.Exporter;
-
 var builder = WebApplication.CreateBuilder(args);
 
 // Add service defaults & Aspire client integrations.
@@ -22,13 +20,6 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Configure OTLP exporter headers for dashboard API key if provided
-var dashboardApiKey = builder.Configuration["DASHBOARD_PRIMARY_APIKEY"];
-if (!string.IsNullOrEmpty(dashboardApiKey))
-{
-    builder.Services.Configure<OtlpExporterOptions>(o => o.Headers = $"x-otlp-api-key={dashboardApiKey}");
-}
-
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
@@ -37,7 +28,10 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 app.UseExceptionHandler();
 
-app.MapOpenApi();
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
 
 // Enable CORS
 app.UseCors("LocalFrontend");
