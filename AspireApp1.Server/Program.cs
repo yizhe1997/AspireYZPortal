@@ -1,4 +1,4 @@
-using AspireApp1.Server;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using OpenTelemetry.Exporter;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -71,6 +71,7 @@ app.MapDefaultEndpoints();
 app.UseFileServer();
 
 app.UseRequestTimeouts();
+app.UseOutputCache();
 
 app.Run();
 
