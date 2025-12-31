@@ -31,6 +31,8 @@ public static class Extensions
             http.AddServiceDiscovery();
         });
 
+        builder.Services.AddAuthentication();
+
         // Add authorization for health check endpoints
         builder.Services.AddAuthorizationBuilder()
             .AddPolicy("HealthCheckPolicy", policy =>
