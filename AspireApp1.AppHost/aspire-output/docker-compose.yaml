@@ -45,6 +45,7 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "server"
       OTEL_EXPORTER_OTLP_HEADERS: "x-otlp-api-key=${DASHBOARD_PRIMARY_APIKEY}"
+      HealthCheck__ApiKey: "${HEALTH_CHECK_API_KEY}"
     ports:
       - "${SERVER_PORT}:80"
     depends_on:

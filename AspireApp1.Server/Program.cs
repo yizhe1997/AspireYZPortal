@@ -33,6 +33,9 @@ if (!string.IsNullOrEmpty(dashboardApiKey))
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+builder.Services.AddRequestTimeouts();
+builder.Services.AddOutputCache();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -43,6 +46,7 @@ app.MapOpenApi();
 // Enable CORS
 app.UseCors("LocalFrontend");
 
+app.UseRequestTimeouts();
 app.UseOutputCache();
 
 string[] summaries = ["Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"];
