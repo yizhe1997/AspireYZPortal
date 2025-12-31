@@ -43,6 +43,7 @@ services:
       CACHE_URI: "redis://:${CACHE_PASSWORD}@cache:6379"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://env-dashboard:18889"
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+      OTEL_EXPORTER_OTLP_HEADERS: "x-otlp-api-key=${DASHBOARD_PRIMARY_APIKEY}"
       OTEL_SERVICE_NAME: "server"
     ports:
       - "${SERVER_PORT}:80"
