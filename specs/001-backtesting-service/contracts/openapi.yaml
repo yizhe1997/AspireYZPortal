@@ -1,0 +1,956 @@
+openapi: 3.0.3
+info:
+  title: Backtesting Framework API
+  version: 1.0.0
+  description: |
+    REST API for submitting backtests, uploading market data, and retrieving results.
+    
+    **Authentication**: All endpoints require `X-API-Key` header.
+    
+    **Rate Limits**: 100 requests/minute per API key.
+    
+    **Error Handling**: Standard HTTP status codes (400 client error, 500 server error).
+  contact:
+    name: API Support
+    email: support@backtest.example.com
+
+servers:
+  - url: https://api.backtest.example.com/v1
+    description: Production server
+  - url: http://localhost:5000/v1
+    description: Local development
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Market Data
+    description: Upload and retrieve historical OHLCV data
+  - name: Backtests
+    description: Submit, monitor, and retrieve backtest results
+
+paths:
+  /market-data/upload:
+    post:
+      tags:
+        - Market Data
+      summary: Upload historical market data
+      description: |
+        Upload CSV file with OHLCV data. Supports timeframes: 1h, 4h, 1d.
+        
+        **CSV Format** (required columns):
+        ```
+        timestamp,open,high,low,close,volume
+        2024-01-01T00:00:00Z,2050.25,2055.00,2048.00,2053.50,12500
+        ```
+        
+        **Constraints**:
+        - Max file size: 50 MB
+        - Max rows: 100,000 bars
+        - Duplicate timestamps skipped silently
+        - Invalid rows logged but don't fail entire upload
+        
+        **Processing**: Returns 202 Accepted immediately. Use `job_id` to check status via `/market-data/{job_id}/status` (not implemented in v1).
+      operationId: uploadMarketData
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - symbol
+                - timeframe
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: CSV file with OHLCV data
+                symbol:
+                  type: string
+                  example: GC
+                  pattern: '^[A-Z0-9]{1,20}$'
+                  description: Ticker symbol (uppercase alphanumeric)
+                timeframe:
+                  type: string
+                  enum: [1h, 4h, 1d]
+                  example: 1h
+                  description: Candlestick timeframe
+      responses:
+        '202':
+          description: Upload accepted for processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id:
+                    type: string
+                    format: uuid
+                    example: "550e8400-e29b-41d4-a716-446655440000"
+                  message:
+                    type: string
+                    example: "Upload accepted. Processing 50,000 rows."
+                  estimated_completion:
+                    type: string
+                    format: date-time
+                    example: "2026-01-03T10:05:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /market-data:
+    get:
+      tags:
+        - Market Data
+      summary: Retrieve available market data
+      description: |
+        List all symbols and timeframes for which market data is available.
+        Includes date range for each combination.
+      operationId: getMarketData
+      parameters:
+        - name: symbol
+          in: query
+          schema:
+            type: string
+            example: GC
+          description: Filter by symbol (optional)
+        - name: timeframe
+          in: query
+          schema:
+            type: string
+            enum: [1h, 4h, 1d]
+          description: Filter by timeframe (optional)
+      responses:
+        '200':
+          description: List of available market data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        symbol:
+                          type: string
+                          example: GC
+                        timeframe:
+                          type: string
+                          example: 1h
+                        start_date:
+                          type: string
+                          format: date
+                          example: "2022-01-01"
+                        end_date:
+                          type: string
+                          format: date
+                          example: "2024-12-31"
+                        bar_count:
+                          type: integer
+                          example: 50000
+                          description: Number of bars available
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /backtests:
+    post:
+      tags:
+        - Backtests
+      summary: Submit a backtest job
+      description: |
+        Submit a new backtest to the queue. Returns immediately with `run_id`.
+        Monitor status via `GET /backtests/{run_id}`.
+        
+        **Constraints**:
+        - Date range must have data in MarketData table
+        - Max date span: 3 years
+        - Strategy ID must exist
+      operationId: submitBacktest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BacktestSubmission'
+      responses:
+        '202':
+          description: Backtest queued successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run_id:
+                    type: string
+                    format: uuid
+                    example: "550e8400-e29b-41d4-a716-446655440000"
+                  status:
+                    type: string
+                    enum: [queued]
+                    example: queued
+                  queue_position:
+                    type: integer
+                    example: 3
+                    description: Current position in queue
+                  estimated_start:
+                    type: string
+                    format: date-time
+                    example: "2026-01-03T10:05:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Strategy not found or market data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    get:
+      tags:
+        - Backtests
+      summary: List backtest runs
+      description: |
+        Retrieve all backtest runs for the authenticated user.
+        Results sorted by creation date (newest first).
+      operationId: listBacktests
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [queued, running, completed, failed, cancelled]
+          description: Filter by status (optional)
+        - name: strategy_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by strategy ID (optional)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Max results per page
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Pagination offset
+      responses:
+        '200':
+          description: List of backtest runs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BacktestRunSummary'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /backtests/{run_id}:
+    get:
+      tags:
+        - Backtests
+      summary: Get backtest run details
+      description: |
+        Retrieve detailed information about a specific backtest run.
+        Includes metrics if status is 'completed'.
+      operationId: getBacktestRun
+      parameters:
+        - $ref: '#/components/parameters/RunIdPath'
+      responses:
+        '200':
+          description: Backtest run details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacktestRunDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Backtests
+      summary: Delete a backtest run
+      description: |
+        Delete a backtest run and all associated data (trades, equity curve, zones).
+        
+        **Behavior**:
+        - If status is 'queued': Remove from queue
+        - If status is 'running': Cancel execution and cleanup
+        - If status is 'completed/failed/cancelled': Delete historical data
+        
+        **Cascade**: Deletes all child records (trades, metrics, equity, zones)
+      operationId: deleteBacktestRun
+      parameters:
+        - $ref: '#/components/parameters/RunIdPath'
+      responses:
+        '204':
+          description: Backtest run deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /backtests/{run_id}/equity:
+    get:
+      tags:
+        - Backtests
+      summary: Get equity curve
+      description: |
+        Retrieve equity curve data points for charting.
+        Only available for completed runs.
+        
+        **Returns**: Time series of account equity and drawdown percentage.
+      operationId: getEquityCurve
+      parameters:
+        - $ref: '#/components/parameters/RunIdPath'
+      responses:
+        '200':
+          description: Equity curve data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run_id:
+                    type: string
+                    format: uuid
+                  initial_capital:
+                    type: number
+                    format: double
+                    example: 50000.00
+                  final_equity:
+                    type: number
+                    format: double
+                    example: 58750.25
+                  data_points:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp:
+                          type: string
+                          format: date-time
+                          example: "2024-06-15T14:00:00Z"
+                        equity:
+                          type: number
+                          format: double
+                          example: 52300.50
+                        drawdown_pct:
+                          type: number
+                          format: double
+                          example: -2.5
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Run not yet completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /backtests/{run_id}/trades:
+    get:
+      tags:
+        - Backtests
+      summary: Get trade history
+      description: |
+        Retrieve all trades executed during the backtest.
+        Only available for completed runs.
+      operationId: getTrades
+      parameters:
+        - $ref: '#/components/parameters/RunIdPath'
+        - name: side
+          in: query
+          schema:
+            type: string
+            enum: [long, short]
+          description: Filter by trade side (optional)
+        - name: zone_type
+          in: query
+          schema:
+            type: string
+            enum: [supply, demand]
+          description: Filter by zone type (optional)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          description: Max results
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Pagination offset
+      responses:
+        '200':
+          description: Trade history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run_id:
+                    type: string
+                    format: uuid
+                  trades:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Trade'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Run not yet completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /backtests/{run_id}/charts:
+    get:
+      tags:
+        - Backtests
+      summary: Get chart data (equity + drawdown)
+      description: |
+        Combined endpoint for frontend charting libraries.
+        Returns equity curve + drawdown in single response.
+        
+        **Optimization**: Use `limit` parameter to downsample data for long runs.
+      operationId: getChartData
+      parameters:
+        - $ref: '#/components/parameters/RunIdPath'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 100
+            maximum: 10000
+            default: 1000
+          description: Max data points (downsampled if necessary)
+      responses:
+        '200':
+          description: Chart data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run_id:
+                    type: string
+                    format: uuid
+                  equity_curve:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp:
+                          type: string
+                          format: date-time
+                        equity:
+                          type: number
+                          format: double
+                  drawdown_curve:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp:
+                          type: string
+                          format: date-time
+                        drawdown_pct:
+                          type: number
+                          format: double
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Run not yet completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        API key for authentication. Obtain from admin.
+        
+        **Example**: `X-API-Key: sk_live_1234567890abcdef`
+
+  parameters:
+    RunIdPath:
+      name: run_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Unique backtest run identifier
+
+  schemas:
+    BacktestSubmission:
+      type: object
+      required:
+        - strategy_id
+        - symbol
+        - timeframe
+        - start_date
+        - end_date
+        - parameters
+      properties:
+        strategy_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+          description: Strategy to execute
+        symbol:
+          type: string
+          pattern: '^[A-Z0-9]{1,20}$'
+          example: GC
+          description: Symbol to backtest
+        timeframe:
+          type: string
+          enum: [1h, 4h, 1d]
+          example: 1h
+          description: Candlestick timeframe
+        start_date:
+          type: string
+          format: date
+          example: "2022-01-01"
+          description: Backtest start date (inclusive)
+        end_date:
+          type: string
+          format: date
+          example: "2024-12-31"
+          description: Backtest end date (inclusive)
+        parameters:
+          $ref: '#/components/schemas/StrategyParameters'
+        initial_capital:
+          type: number
+          format: double
+          default: 50000.00
+          minimum: 1000
+          maximum: 10000000
+          example: 50000.00
+          description: Starting account balance (USD)
+
+    StrategyParameters:
+      type: object
+      required:
+        - zone_lookback_bars
+        - zone_min_touches
+        - zone_width_atr_multiple
+        - zone_max_age_bars
+        - require_confirmation
+        - stop_loss_atr_multiple
+        - take_profit_r_multiple
+        - risk_per_trade_pct
+        - max_concurrent_trades
+      properties:
+        zone_lookback_bars:
+          type: integer
+          minimum: 20
+          maximum: 500
+          example: 100
+          description: Bars to scan for zone detection
+        zone_min_touches:
+          type: integer
+          minimum: 2
+          maximum: 10
+          example: 2
+          description: Minimum touches required to confirm zone
+        zone_width_atr_multiple:
+          type: number
+          format: double
+          minimum: 0.1
+          maximum: 3.0
+          example: 0.5
+          description: Zone width as multiple of ATR
+        zone_max_age_bars:
+          type: integer
+          minimum: 50
+          maximum: 2000
+          example: 500
+          description: Max age of zone before invalidation
+        require_confirmation:
+          type: boolean
+          example: true
+          description: Require confirmation candle before entry
+        stop_loss_atr_multiple:
+          type: number
+          format: double
+          minimum: 0.5
+          maximum: 10.0
+          example: 2.0
+          description: Stop loss distance as multiple of ATR
+        take_profit_r_multiple:
+          type: number
+          format: double
+          minimum: 0.5
+          maximum: 10.0
+          example: 2.0
+          description: Take profit as multiple of risk (R:R ratio)
+        risk_per_trade_pct:
+          type: number
+          format: double
+          minimum: 0.1
+          maximum: 10.0
+          example: 1.0
+          description: Risk per trade as % of account
+        max_concurrent_trades:
+          type: integer
+          minimum: 1
+          maximum: 10
+          example: 2
+          description: Max simultaneous open positions
+        session_filter:
+          type: array
+          items:
+            type: string
+            enum: [NY_AM, NY_PM, Asia, Europe]
+          example: ["NY_AM"]
+          description: Trading sessions to filter (empty = all sessions)
+        limit_order_offset_ticks:
+          type: integer
+          minimum: 0
+          maximum: 20
+          default: 1
+          example: 1
+          description: Ticks inside zone for limit order placement
+
+    BacktestRunSummary:
+      type: object
+      properties:
+        run_id:
+          type: string
+          format: uuid
+        strategy_name:
+          type: string
+          example: "Supply/Demand Zones v1"
+        symbol:
+          type: string
+          example: GC
+        timeframe:
+          type: string
+          example: 1h
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [queued, running, completed, failed, cancelled]
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Execution progress percentage
+        created_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        win_rate:
+          type: number
+          format: double
+          nullable: true
+          example: 52.3
+          description: Only available if status=completed
+        final_equity:
+          type: number
+          format: double
+          nullable: true
+          example: 58750.25
+          description: Only available if status=completed
+
+    BacktestRunDetail:
+      allOf:
+        - $ref: '#/components/schemas/BacktestRunSummary'
+        - type: object
+          properties:
+            parameters:
+              $ref: '#/components/schemas/StrategyParameters'
+            initial_capital:
+              type: number
+              format: double
+              example: 50000.00
+            started_at:
+              type: string
+              format: date-time
+              nullable: true
+            worker_id:
+              type: string
+              nullable: true
+              example: "worker-01"
+            error_message:
+              type: string
+              nullable: true
+              example: "Market data missing for 2023-05-15"
+            metrics:
+              type: object
+              nullable: true
+              description: Only available if status=completed
+              properties:
+                win_rate:
+                  type: number
+                  format: double
+                  example: 52.3
+                avg_r_multiple:
+                  type: number
+                  format: double
+                  example: 1.85
+                sharpe_ratio:
+                  type: number
+                  format: double
+                  example: 1.42
+                max_drawdown:
+                  type: number
+                  format: double
+                  example: -12.5
+                profit_factor:
+                  type: number
+                  format: double
+                  example: 1.75
+                total_trades:
+                  type: integer
+                  example: 150
+                winning_trades:
+                  type: integer
+                  example: 78
+                losing_trades:
+                  type: integer
+                  example: 72
+                gross_profit:
+                  type: number
+                  format: double
+                  example: 15200.50
+                gross_loss:
+                  type: number
+                  format: double
+                  example: 8680.25
+
+    Trade:
+      type: object
+      properties:
+        trade_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+          example: GC
+        entry_time:
+          type: string
+          format: date-time
+        exit_time:
+          type: string
+          format: date-time
+        side:
+          type: string
+          enum: [long, short]
+        entry_price:
+          type: number
+          format: double
+          example: 2050.25
+        exit_price:
+          type: number
+          format: double
+          example: 2065.75
+        quantity:
+          type: number
+          format: double
+          example: 1.0
+        pnl:
+          type: number
+          format: double
+          example: 155.00
+          description: Profit/loss in USD
+        pnl_pct:
+          type: number
+          format: double
+          example: 0.756
+          description: Profit/loss percentage
+        r_multiple:
+          type: number
+          format: double
+          example: 1.85
+          description: Risk-reward multiple
+        mae:
+          type: number
+          format: double
+          example: -0.35
+          description: Maximum Adverse Excursion (%)
+        mfe:
+          type: number
+          format: double
+          example: 1.20
+          description: Maximum Favorable Excursion (%)
+        holding_bars:
+          type: integer
+          example: 24
+          description: Number of bars held
+        zone_type:
+          type: string
+          enum: [supply, demand]
+        zone_strength:
+          type: number
+          format: double
+          example: 0.85
+        fill_type:
+          type: string
+          enum: [limit, market]
+          default: limit
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 150
+        limit:
+          type: integer
+          example: 20
+        offset:
+          type: integer
+          example: 0
+        has_more:
+          type: boolean
+          example: true
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: INVALID_REQUEST
+            message:
+              type: string
+              example: "End date must be after start date"
+            details:
+              type: object
+              nullable: true
+              additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            validation_error:
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: "Validation failed"
+                  details:
+                    start_date: "Must be before end_date"
+                    parameters.zone_lookback_bars: "Must be between 20 and 500"
+
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: "Invalid API key"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: NOT_FOUND
+              message: "Backtest run not found"
+
+    PayloadTooLarge:
+      description: Request payload exceeds size limit or row cap
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: PAYLOAD_TOO_LARGE
+              message: "File exceeds 50 MB or 100,000 row limit"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: INTERNAL_ERROR
+              message: "An unexpected error occurred"

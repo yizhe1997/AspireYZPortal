@@ -5,4 +5,7 @@
     <Build />
     <Deploy />
   </Project>
+  <Project Path="AspireApp1.BacktestApi/AspireApp1.BacktestApi.csproj" />
+  <Project Path="AspireApp1.BacktestWorker/AspireApp1.BacktestWorker.csproj" />
+  <Project Path="AspireApp1.Backtest.Data/AspireApp1.Backtest.Data.csproj" />
 </Solution>

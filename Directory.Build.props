@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <_IsBacktestProject Condition=" '$(MSBuildProjectName)' == 'AspireApp1.BacktestApi' Or '$(MSBuildProjectName)' == 'AspireApp1.BacktestWorker' Or '$(MSBuildProjectName)' == 'AspireApp1.Backtest.Data' ">true</_IsBacktestProject>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(_IsBacktestProject)' == 'true' ">
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup Condition=" '$(_IsBacktestProject)' == 'true' ">
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="8.0.0" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

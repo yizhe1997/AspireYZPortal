@@ -10,11 +10,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AspireApp1.Server\AspireApp1.Server.csproj" />
+    <ProjectReference Include="..\AspireApp1.BacktestApi\AspireApp1.BacktestApi.csproj" />
+    <ProjectReference Include="..\AspireApp1.BacktestWorker\AspireApp1.BacktestWorker.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.Docker" Version="13.1.0-preview.1.25616.3" />
     <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.1.0" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="13.1.0" />
     <PackageReference Include="Aspire.Hosting.Redis" Version="13.1.0" />
   </ItemGroup>
 </Project>

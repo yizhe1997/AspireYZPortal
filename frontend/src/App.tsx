@@ -1,6 +1,19 @@
 import { useState, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import aspireLogo from '/Aspire.png'
 import './App.css'
+import { BacktestsListPage } from './pages/BacktestsListPage'
+import { BacktestDetailPage } from './pages/BacktestDetailPage'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 30,
+      gcTime: 1000 * 60,
+    },
+  },
+})
 
 interface WeatherForecast {
   date: string
@@ -9,7 +22,7 @@ interface WeatherForecast {
   summary: string
 }
 
-function App() {
+function HomePage() {
   const [weatherData, setWeatherData] = useState<WeatherForecast[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -65,6 +78,10 @@ function App() {
         <h1 className="app-title">Aspire Starter</h1>
         <p className="app-subtitle">Modern distributed application development</p>
       </header>
+
+      <nav style={{ padding: '1rem', borderBottom: '1px solid #e0e0e0' }}>
+        <Link to="/backtests">Backtests</Link>
+      </nav>
 
       <main className="main-content">
         <section className="weather-section" aria-labelledby="weather-heading">
@@ -183,4 +200,16 @@ function App() {
   )
 }
 
-export default App
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/backtests" element={<BacktestsListPage />} />
+          <Route path="/backtests/:runId" element={<BacktestDetailPage />} />
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
+  )
+}

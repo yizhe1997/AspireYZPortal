@@ -1,0 +1,13 @@
+bin/
+obj/
+.git/
+.vs/
+.vscode/
+Dockerfile*
+*.user
+*.suo
+*.log*
+.env*
+node_modules/
+dist/
+build/
