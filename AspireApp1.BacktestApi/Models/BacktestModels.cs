@@ -78,6 +78,8 @@ public class BacktestStatusResponse
     public DateTime? FinishedAt { get; set; }
     public string? ErrorMessage { get; set; }
     public BacktestMetrics? Metrics { get; set; }
+    public int QueuePosition { get; set; } = -1; // -1 = not queued, 0 = processing, >0 = position in queue
+    public DateTime? EstimatedStartTime { get; set; }
 }
 
 public class BacktestMetrics
@@ -124,6 +126,8 @@ public class BacktestListItem
     public int Progress { get; set; }
     public decimal? FinalEquity { get; set; }
     public decimal? WinRate { get; set; }
+    public int QueuePosition { get; set; } = -1; // -1 = not queued, 0 = processing, >0 = position
+    public DateTime? EstimatedStartTime { get; set; }
 }
 
 public class Pagination

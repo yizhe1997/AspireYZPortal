@@ -97,9 +97,9 @@
 
 ### Implementation
 
-- [ ] T029 [US4] Expose queue depth and ETA in status/list responses using Redis metrics in AspireApp1.BacktestApi/Controllers/BacktestsController.cs
-- [ ] T030 [P] [US4] Implement cancellation handling (API + worker checks) in AspireApp1.BacktestApi/Controllers/BacktestsController.cs and AspireApp1.BacktestWorker/Workers/BacktestProcessor.cs
-- [ ] T031 [P] [US4] Add cancel controls and status badges to BacktestListPage and detail header in frontend/src/pages/BacktestListPage.tsx and frontend/src/pages/BacktestDetailPage.tsx
+- [X] T029 [US4] Expose queue depth and ETA in status/list responses using Redis metrics in AspireApp1.BacktestApi/Controllers/BacktestsController.cs
+- [X] T030 [P] [US4] Implement cancellation handling (API + worker checks) in AspireApp1.BacktestApi/Controllers/BacktestsController.cs and AspireApp1.BacktestWorker/Workers/BacktestProcessor.cs
+- [X] T031 [P] [US4] Add cancel controls and status badges to BacktestListPage and detail header in frontend/src/pages/BacktestListPage.tsx and frontend/src/pages/BacktestDetailPage.tsx
 
 **Checkpoint**: Queue visibility and cancellation work end-to-end.
 

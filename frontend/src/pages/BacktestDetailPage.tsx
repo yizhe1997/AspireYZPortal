@@ -18,6 +18,10 @@ interface BacktestDetail {
   created_at: string;
   finished_at?: string;
   initial_capital: number;
+  final_equity?: number;
+  win_rate?: number;
+  queue_position?: number;
+  estimated_start_time?: string;
   metrics?: {
     win_rate: number;
     avg_r_multiple: number;
@@ -36,6 +40,7 @@ interface BacktestDetail {
 export const BacktestDetailPage: React.FC = () => {
   const { runId } = useParams<{ runId: string }>();
   const [activeTab, setActiveTab] = useState<'metrics' | 'equity' | 'trades'>('metrics');
+  const [cancelling, setCancelling] = useState(false);
 
   const { data, isLoading, error } = useQuery<BacktestDetail, Error>({
     queryKey: ['backtest', runId],
@@ -80,6 +85,36 @@ export const BacktestDetailPage: React.FC = () => {
     cancelled: 'bg-gray-100 text-gray-800',
   }[data.status] || 'bg-gray-100 text-gray-800';
 
+  const canCancel = data.status === 'queued' || data.status === 'running';
+
+  const handleCancel = async () => {
+    if (!window.confirm('Are you sure you want to cancel this backtest?')) {
+      return;
+    }
+
+    try {
+      setCancelling(true);
+      const response = await fetch(`${API_BASE}/backtests/${runId}/cancel`, {
+        method: 'POST',
+        headers: { 'X-API-Key': API_KEY },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(`Failed to cancel: ${error.error}`);
+        return;
+      }
+
+      alert('Backtest cancelled successfully');
+      // Refresh the page
+      window.location.reload();
+    } catch (err) {
+      alert(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
       {/* Header */}
@@ -93,10 +128,35 @@ export const BacktestDetailPage: React.FC = () => {
               <p className="text-gray-600 mt-1">{data.strategy_name}</p>
             )}
           </div>
-          <div className={`px-4 py-2 rounded font-medium ${statusColor}`}>
-            {data.status.toUpperCase()}
+          <div className="flex items-center gap-4">
+            <div className={`px-4 py-2 rounded font-medium ${statusColor}`}>
+              {data.status.toUpperCase()}
+            </div>
+            {canCancel && (
+              <button
+                onClick={handleCancel}
+                disabled={cancelling}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+              >
+                {cancelling ? 'Cancelling...' : 'Cancel'}
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Queue info */}
+        {data.queue_position !== undefined && data.queue_position > 0 && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+            <div className="font-medium text-yellow-900">
+              Queue Position: {data.queue_position}
+            </div>
+            {data.estimated_start_time && (
+              <div className="text-sm text-yellow-800">
+                Estimated start: {new Date(data.estimated_start_time).toLocaleString()}
+              </div>
+            )}
+          </div>
+        )}
 
         {data.progress > 0 && (
           <div className="mb-4">

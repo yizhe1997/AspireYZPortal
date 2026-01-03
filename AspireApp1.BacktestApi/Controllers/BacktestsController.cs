@@ -17,6 +17,7 @@ public class BacktestsController : ControllerBase
     private readonly BacktestSubmissionService _submissionService;
     private readonly ResultsService _resultsService;
     private readonly RedisQueueProducer _queueProducer;
+    private readonly QueueService _queueService;
     private readonly ILogger<BacktestsController> _logger;
 
     public BacktestsController(
@@ -24,12 +25,14 @@ public class BacktestsController : ControllerBase
         BacktestSubmissionService submissionService,
         ResultsService resultsService,
         RedisQueueProducer queueProducer,
+        QueueService queueService,
         ILogger<BacktestsController> logger)
     {
         _db = db;
         _submissionService = submissionService;
         _resultsService = resultsService;
         _queueProducer = queueProducer;
+        _queueService = queueService;
         _logger = logger;
     }
 
@@ -121,6 +124,14 @@ public class BacktestsController : ControllerBase
             ErrorMessage = run.ErrorMessage
         };
 
+        // Add queue position for queued or running runs
+        if (run.Status == BacktestStatus.Queued || run.Status == BacktestStatus.Running)
+        {
+            var (queuePos, estimatedStart) = await _queueService.GetQueuePositionAsync(run.Id);
+            response.QueuePosition = queuePos;
+            response.EstimatedStartTime = estimatedStart;
+        }
+
         // Load metrics if completed
         if (run.Status == BacktestStatus.Completed)
         {
@@ -194,6 +205,14 @@ public class BacktestsController : ControllerBase
                 g => g.ToDictionary(m => m.MetricName, m => m.MetricValue),
                 cancellationToken);
 
+        // Get queue positions for all queued/running runs
+        var queueInfoByRunId = new Dictionary<Guid, (int Position, DateTime? EstimatedStart)>();
+        foreach (var runId in runIds.Where(id => runs.Any(r => r.Id == id && (r.Status == BacktestStatus.Queued || r.Status == BacktestStatus.Running))))
+        {
+            var queueInfo = await _queueService.GetQueuePositionAsync(runId);
+            queueInfoByRunId[runId] = queueInfo;
+        }
+
         var items = runs.Select(r =>
         {
             metricsByRun.TryGetValue(r.Id, out var runMetrics);
@@ -207,7 +226,7 @@ public class BacktestsController : ControllerBase
                 finalEquity = r.InitialCapital + runMetrics.GetValueOrDefault("total_pnl");
             }
 
-            return new BacktestListItem
+            var item = new BacktestListItem
             {
                 RunId = r.Id,
                 StrategyName = strategies.GetValueOrDefault(r.StrategyId) ?? string.Empty,
@@ -222,6 +241,15 @@ public class BacktestsController : ControllerBase
                 FinalEquity = finalEquity,
                 WinRate = winRate
             };
+
+            // Add queue position if applicable
+            if (queueInfoByRunId.TryGetValue(r.Id, out var queueInfo))
+            {
+                item.QueuePosition = queueInfo.Position;
+                item.EstimatedStartTime = queueInfo.EstimatedStart;
+            }
+
+            return item;
         }).ToList();
 
         return Ok(new BacktestListResponse
@@ -361,4 +389,46 @@ public class BacktestsController : ControllerBase
                 has_more = result.HasMore
             }
         });
-    }}
+    }
+
+    [HttpPost("{id:guid}/cancel")]
+    public async Task<IActionResult> CancelBacktest(Guid id, CancellationToken cancellationToken)
+    {
+        var run = await _db.BacktestRuns.FindAsync(new object[] { id }, cancellationToken);
+
+        if (run == null)
+        {
+            return NotFound(new { error = "Backtest run not found" });
+        }
+
+        // Only allow cancelling queued or running jobs
+        if (run.Status != BacktestStatus.Queued && run.Status != BacktestStatus.Running)
+        {
+            return Conflict(new { error = $"Cannot cancel backtest with status {run.Status}" });
+        }
+
+        // Mark as cancelled in Redis
+        var cancelled = await _queueService.CancelRunAsync(id);
+
+        if (!cancelled)
+        {
+            return StatusCode(500, new { error = "Failed to cancel backtest" });
+        }
+
+        // Update database status
+        run.Status = BacktestStatus.Cancelled;
+        run.FinishedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Backtest {RunId} cancelled", id);
+
+        return Ok(new { status = "cancelled", run_id = id });
+    }
+
+    [HttpGet("queue/depth")]
+    public async Task<IActionResult> GetQueueDepth()
+    {
+        var depth = await _queueService.GetQueueDepthAsync();
+        return Ok(new { queue_depth = depth });
+    }
+}

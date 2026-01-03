@@ -17,6 +17,8 @@ interface Backtest {
   initial_capital: number;
   final_equity?: number;
   win_rate?: number;
+  queue_position?: number;
+  estimated_start_time?: string;
 }
 
 interface BacktestsResponse {
@@ -34,6 +36,7 @@ export const BacktestsListPage: React.FC = () => {
   const [offset, setOffset] = useState(0);
   const [strategy, setStrategy] = useState('');
   const [symbol, setSymbol] = useState('');
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery<BacktestsResponse, Error>({
     queryKey: ['backtests', limit, offset, strategy, symbol],
@@ -70,6 +73,35 @@ export const BacktestsListPage: React.FC = () => {
       cancelled: 'bg-gray-100 text-gray-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const handleCancel = async (runId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    
+    if (!window.confirm('Are you sure you want to cancel this backtest?')) {
+      return;
+    }
+
+    try {
+      setCancellingId(runId);
+      const response = await fetch(`${API_BASE}/backtests/${runId}/cancel`, {
+        method: 'POST',
+        headers: { 'X-API-Key': API_KEY },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(`Failed to cancel: ${error.error}`);
+        return;
+      }
+
+      // Refresh the list
+      window.location.reload();
+    } catch (err) {
+      alert(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setCancellingId(null);
+    }
   };
 
   const handleRowClick = (runId: string) => {
@@ -137,9 +169,11 @@ export const BacktestsListPage: React.FC = () => {
                 <th className="text-left p-3">Strategy</th>
                 <th className="text-left p-3">Status</th>
                 <th className="text-right p-3">Progress</th>
+                <th className="text-right p-3">Queue</th>
                 <th className="text-right p-3">Win Rate</th>
                 <th className="text-right p-3">Final Equity</th>
                 <th className="text-left p-3">Created</th>
+                <th className="text-left p-3">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -170,6 +204,15 @@ export const BacktestsListPage: React.FC = () => {
                     </div>
                   </td>
                   <td className="p-3 text-right">
+                    {backtest.queue_position !== undefined && backtest.queue_position > 0 ? (
+                      <span className="text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                        #{backtest.queue_position}
+                      </span>
+                    ) : (
+                      '-'
+                    )}
+                  </td>
+                  <td className="p-3 text-right">
                     {backtest.win_rate ? `${(backtest.win_rate * 100).toFixed(2)}%` : '-'}
                   </td>
                   <td className="p-3 text-right">
@@ -177,6 +220,17 @@ export const BacktestsListPage: React.FC = () => {
                   </td>
                   <td className="p-3 text-sm">
                     {new Date(backtest.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="p-3 text-sm" onClick={(e) => e.stopPropagation()}>
+                    {(backtest.status === 'queued' || backtest.status === 'running') && (
+                      <button
+                        onClick={(e) => handleCancel(backtest.run_id, e)}
+                        disabled={cancellingId === backtest.run_id}
+                        className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50"
+                      >
+                        {cancellingId === backtest.run_id ? 'Cancelling...' : 'Cancel'}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
