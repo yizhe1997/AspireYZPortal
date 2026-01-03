@@ -18,6 +18,7 @@ public class BacktestsController : ControllerBase
     private readonly ResultsService _resultsService;
     private readonly RedisQueueProducer _queueProducer;
     private readonly QueueService _queueService;
+    private readonly ComparisonService _comparisonService;
     private readonly ILogger<BacktestsController> _logger;
 
     public BacktestsController(
@@ -26,6 +27,7 @@ public class BacktestsController : ControllerBase
         ResultsService resultsService,
         RedisQueueProducer queueProducer,
         QueueService queueService,
+        ComparisonService comparisonService,
         ILogger<BacktestsController> logger)
     {
         _db = db;
@@ -33,6 +35,7 @@ public class BacktestsController : ControllerBase
         _resultsService = resultsService;
         _queueProducer = queueProducer;
         _queueService = queueService;
+        _comparisonService = comparisonService;
         _logger = logger;
     }
 
@@ -430,5 +433,30 @@ public class BacktestsController : ControllerBase
     {
         var depth = await _queueService.GetQueueDepthAsync();
         return Ok(new { queue_depth = depth });
+    }
+
+    [HttpPost("compare")]
+    public async Task<IActionResult> CompareBacktests(
+        [FromBody] CompareRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.RunIds == null || request.RunIds.Length == 0)
+        {
+            return BadRequest(new { error = "At least one run ID is required" });
+        }
+
+        if (request.RunIds.Length > 10)
+        {
+            return BadRequest(new { error = "Maximum 10 runs can be compared at once" });
+        }
+
+        var result = await _comparisonService.CompareRunsAsync(request.RunIds, cancellationToken);
+
+        if (result == null)
+        {
+            return NotFound(new { error = "No runs found" });
+        }
+
+        return Ok(result);
     }
 }

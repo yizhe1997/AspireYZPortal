@@ -5,6 +5,7 @@ import aspireLogo from '/Aspire.png'
 import './App.css'
 import { BacktestsListPage } from './pages/BacktestsListPage'
 import { BacktestDetailPage } from './pages/BacktestDetailPage'
+import { BacktestComparePage } from './pages/BacktestComparePage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,7 +81,8 @@ function HomePage() {
       </header>
 
       <nav style={{ padding: '1rem', borderBottom: '1px solid #e0e0e0' }}>
-        <Link to="/backtests">Backtests</Link>
+        <Link to="/backtests" style={{ marginRight: '1rem' }}>Backtests</Link>
+        <Link to="/backtests/compare">Compare</Link>
       </nav>
 
       <main className="main-content">
@@ -207,6 +209,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/backtests" element={<BacktestsListPage />} />
+          <Route path="/backtests/compare" element={<BacktestComparePage />} />
           <Route path="/backtests/:runId" element={<BacktestDetailPage />} />
         </Routes>
       </BrowserRouter>

@@ -24,6 +24,7 @@ builder.Services.AddScoped<BacktestSubmissionService>();
 builder.Services.AddScoped<MarketDataService>();
 builder.Services.AddScoped<ResultsService>();
 builder.Services.AddScoped<QueueService>();
+builder.Services.AddScoped<ComparisonService>();
 builder.Services.AddScoped<RedisQueueProducer>();
 
 // Add controllers

@@ -153,3 +153,8 @@ public class EquityPoint
     public decimal Equity { get; set; }
     public decimal DrawdownPct { get; set; }
 }
+
+public class CompareRequest
+{
+    public Guid[] RunIds { get; set; } = Array.Empty<Guid>();
+}
