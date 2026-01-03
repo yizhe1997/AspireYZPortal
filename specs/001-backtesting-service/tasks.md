@@ -113,9 +113,9 @@
 
 ### Implementation
 
-- [ ] T032 [P] [US5] Implement comparison query aggregating metrics/parameters/equity (downsample) in AspireApp1.BacktestApi/Controllers/BacktestsController.cs
-- [ ] T033 [P] [US5] Build comparison page with parameter diff table and overlaid Recharts equity curves in frontend/src/pages/BacktestComparePage.tsx
-- [ ] T034 [US5] Wire frontend routing and API client for compare endpoint in frontend/src/services/backtestsApi.ts and frontend/src/App.tsx
+- [X] T032 [P] [US5] Implement comparison query aggregating metrics/parameters/equity (downsample) in AspireApp1.BacktestApi/Controllers/BacktestsController.cs
+- [X] T033 [P] [US5] Build comparison page with parameter diff table and overlaid Recharts equity curves in frontend/src/pages/BacktestComparePage.tsx
+- [X] T034 [US5] Wire frontend routing and API client for compare endpoint in frontend/src/services/backtestsApi.ts and frontend/src/App.tsx
 
 **Checkpoint**: Comparison feature functional and independently testable.
 
