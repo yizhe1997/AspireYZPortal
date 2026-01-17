@@ -15,8 +15,7 @@ public class ApiKeyAuthMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         // Skip auth for health check and development endpoints
-        if (context.Request.Path.StartsWithSegments("/health") ||
-            context.Request.Path.StartsWithSegments("/swagger"))
+        if (context.Request.Path.StartsWithSegments("/health"))
         {
             await _next(context);
             return;

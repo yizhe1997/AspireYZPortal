@@ -11,9 +11,13 @@ This repository includes a **distributed backtesting framework** for supply/dema
 ### Quick Start
 
 1. **Run infrastructure**: `dotnet run --project AspireApp1.AppHost`
+   - Database migrations apply automatically on first start
+   - Check Aspire Dashboard at http://localhost:15888
 2. **Upload data**: `curl -X POST http://localhost:5000/api/market-data/upload ...`
 3. **Submit backtest**: `curl -X POST http://localhost:5000/api/backtests ...`
 4. **Monitor results**: Open `http://localhost:3000`
+
+> **Note**: Database tables are created automatically when BacktestApi starts. No manual migration commands needed.
 
 ### Documentation
 

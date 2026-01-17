@@ -1,0 +1,3 @@
+# Python dependencies for test data download scripts
+yfinance>=0.2.0
+pandas>=2.0.0

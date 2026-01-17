@@ -62,30 +62,32 @@ dotnet run
 
 **Health Check**: Navigate to Aspire Dashboard and ensure all services show "Running" status.
 
+> **Database Migrations**: The BacktestApi automatically applies database migrations on startup using Entity Framework Core. You'll see logs like "Applying migrations..." in the Aspire Dashboard console output for the `backtestapi` service.
+
 ---
 
-## Step 3: Seed Test Data
+## Step 3: Verify Database Setup
 
-Run database migrations and seed sample market data:
+Check that the database tables were created:
 
 ```powershell
-cd ../AspireApp1.BacktestApi
-dotnet ef database update
-dotnet run --seed-data
+# Connect to PostgreSQL using connection string from Aspire Dashboard
+# Or check the BacktestApi logs for "Applied X migrations" message
 ```
 
-**Seeded Data**:
-- **Symbol**: GC (Gold Futures)
-- **Timeframe**: 1h
-- **Date Range**: 2022-01-01 to 2024-12-31 (3 years)
-- **Bars**: ~26,280 rows
-- **Strategy**: "Supply/Demand Zones v1" (ID: `550e8400-e29b-41d4-a716-446655440000`)
+**Expected Tables**:
+- `MarketData` - OHLCV bars
+- `Backtests` - Backtest configurations
+- `Trades` - Simulated trade results
+- `PerformanceMetrics` - Aggregated statistics
+- `StrategyParameters` - Zone detection parameters
+- `ComparisonResults` - Multi-backtest comparisons
 
 ---
 
-## Step 4: Upload Market Data (Optional)
+## Step 4: Upload Market Data
 
-If you want to test with your own CSV data:
+You can use the test scripts to download sample Gold data:
 
 **CSV Format**:
 ```csv

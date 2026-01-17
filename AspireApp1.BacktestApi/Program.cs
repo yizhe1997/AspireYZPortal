@@ -9,8 +9,15 @@ using AspireApp1.BacktestApi.Queue;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddOpenApi();
+
+// Add HTTP logging for debugging
+builder.Services.AddHttpLogging(logging =>
+{
+    logging.LoggingFields = Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.All;
+    logging.RequestBodyLogLimit = 4096;
+    logging.ResponseBodyLogLimit = 4096;
+});
 
 // Register DbContext with connection string from Aspire
 builder.Services.AddDbContext<BacktestDbContext>(options =>
@@ -35,14 +42,23 @@ builder.Services.AddObservability(builder.Configuration);
 
 var app = builder.Build();
 
+// Apply database migrations automatically
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<BacktestDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
+// HTTP logging
+app.UseHttpLogging();
+
 // Global error handling
 app.UseGlobalErrorHandling();
 
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.MapOpenApi();
 }
 
 // API Key authentication

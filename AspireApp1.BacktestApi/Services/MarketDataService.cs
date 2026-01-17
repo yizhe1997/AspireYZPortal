@@ -92,7 +92,22 @@ public class MarketDataService
 
                         try
                         {
+                            // Skip rows with empty/invalid timestamps
+                            var timestampStr = csv.GetField<string>("timestamp");
+                            if (string.IsNullOrWhiteSpace(timestampStr))
+                            {
+                                result.RowsSkipped++;
+                                continue;
+                            }
+
                             var timestamp = csv.GetField<DateTime>("timestamp");
+                            
+                            // Ensure UTC for PostgreSQL compatibility
+                            if (timestamp.Kind != DateTimeKind.Utc)
+                            {
+                                timestamp = DateTime.SpecifyKind(timestamp, DateTimeKind.Utc);
+                            }
+
                             var open = csv.GetField<decimal>("open");
                             var high = csv.GetField<decimal>("high");
                             var low = csv.GetField<decimal>("low");

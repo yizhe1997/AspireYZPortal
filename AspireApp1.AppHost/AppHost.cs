@@ -2,7 +2,12 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 builder.AddDockerComposeEnvironment("env");
 
-var postgres = builder.AddPostgres("backtestdb");
+// TODO: use configuration for the ports and other settings
+// cause hardcoding doesnt work for production scenarios
+var postgres = builder.AddPostgres("postgres");
+    // Name the endpoint to avoid default 'tcp' conflict
+    // Host port 5433 -> container port 5432 to avoid conflicts and ensure mapping is created
+    //.WithEndpoint(name: "postgres", port: 5433, targetPort: 5432);
 var backtestDb = postgres.AddDatabase("backtestdb");
 
 var cache = builder.AddRedis("cache");

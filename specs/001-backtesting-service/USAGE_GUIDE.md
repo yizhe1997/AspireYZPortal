@@ -137,8 +137,11 @@ START
 **Before you start**, ensure:
 - ✅ Aspire is running: `dotnet run --project AspireApp1.AppHost`
 - ✅ All services are healthy (check http://localhost:15888)
+- ✅ **Database migrations applied automatically** (BacktestApi applies on startup)
 - ✅ You have market data (CSV format)
 - ✅ API Key: `dev_key_12345` (development only)
+
+> **Note**: The database tables are created automatically when the BacktestApi starts for the first time. The migrations are applied using Entity Framework Core's `MigrateAsync()`. You don't need to run any manual commands.
 
 ---
 
@@ -155,11 +158,31 @@ timestamp,open,high,low,close,volume
 2024-01-01T03:00:00Z,2060.00,2064.25,2058.50,2061.75,12800
 ```
 
+> **⚠️ Common CSV Issues:**
+> - **Timestamps must be UTC**: Use ISO 8601 format with `Z` suffix (e.g., `2024-01-01T00:00:00Z`)
+> - **Remove header rows**: Some data sources (like yfinance) add metadata rows—delete any rows with empty timestamps or repeated values like `,GC=F,GC=F,GC=F,GC=F,GC=F`
+> - **Check OHLC relationships**: Ensure `high >= open,close,low` and `low <= open,close`
+> - **Positive values only**: All prices and volume must be > 0
+> - **No duplicates**: Each timestamp should appear once
+
 **Upload via API:**
+
+*Bash/Linux:*
 ```bash
-curl -X POST http://localhost:5000/api/market-data/upload \
+curl -X POST http://localhost:5000/api/marketdata/upload \
   -H "X-API-Key: dev_key_12345" \
-  -F "file=@GOLD_1H.csv"
+  -F "file=@GOLD_1H.csv" \
+  -F "symbol=GC" \
+  -F "timeframe=1h"
+```
+
+*PowerShell:*
+```powershell
+curl.exe -X POST "http://localhost:5000/api/marketdata/upload" `
+  -H "X-API-Key: dev_key_12345" `
+  -F "file=@GOLD_1H.csv" `
+  -F "symbol=GC" `
+  -F "timeframe=1h"
 ```
 
 **Response:**
@@ -187,6 +210,7 @@ curl -X POST http://localhost:5000/api/market-data/upload \
 
 **Define your strategy parameters:**
 
+*Bash/Linux:*
 ```bash
 curl -X POST http://localhost:5000/api/backtests \
   -H "X-API-Key: dev_key_12345" \
@@ -207,6 +231,14 @@ curl -X POST http://localhost:5000/api/backtests \
       "stop_loss_atr": 1.5
     }
   }'
+```
+
+*PowerShell:*
+```powershell
+curl.exe -X POST "http://localhost:5000/api/backtests" `
+  -H "X-API-Key: dev_key_12345" `
+  -H "Content-Type: application/json" `
+  -d '{"symbol":"GC","timeframe":"1H","start_date":"2024-01-01","end_date":"2024-12-31","strategy_name":"ZoneReversal","parameters":{"ma_period":20,"risk_pct":1.5,"zone_sensitivity":0.65,"session_filter":"ASIA","volume_threshold":50,"take_profit_atr":2.0,"stop_loss_atr":1.5}}'
 ```
 
 **Response:**
@@ -354,15 +386,29 @@ Navigate to: `http://localhost:3000`
 ```
 
 **Step 2: Upload Data**
+
+*Bash/Linux:*
 ```bash
 curl -X POST http://localhost:5000/api/market-data/upload \
   -H "X-API-Key: dev_key_12345" \
   -F "file=@GOLD_2024_2025.csv"
+```
 
-# Response: 17520 bars uploaded, date range 2024-01-01 to 2025-12-31 ✅
+*PowerShell:*
+```powershell
+curl.exe -X POST "http://localhost:5000/api/market-data/upload" `
+  -H "X-API-Key: dev_key_12345" `
+  -F "file=@GOLD_2024_2025.csv"
+```
+
+*Response:*
+```
+17520 bars uploaded, date range 2024-01-01 to 2025-12-31 ✅
 ```
 
 **Step 3: Submit Backtest for 2024**
+
+*Bash/Linux:*
 ```bash
 curl -X POST http://localhost:5000/api/backtests \
   -H "X-API-Key: dev_key_12345" \
@@ -383,8 +429,19 @@ curl -X POST http://localhost:5000/api/backtests \
       "stop_loss_atr": 1.5
     }
   }'
+```
 
-# run_id: abc-123-def
+*PowerShell:*
+```powershell
+curl.exe -X POST "http://localhost:5000/api/backtests" `
+  -H "X-API-Key: dev_key_12345" `
+  -H "Content-Type: application/json" `
+  -d '{"symbol":"GC","timeframe":"1H","start_date":"2024-01-01","end_date":"2024-12-31","strategy_name":"ZoneReversal","parameters":{"ma_period":20,"risk_pct":1.5,"zone_sensitivity":0.65,"session_filter":"ASIA","volume_threshold":50,"take_profit_atr":2.0,"stop_loss_atr":1.5}}'
+```
+
+*Response:*
+```
+run_id: abc-123-def
 ```
 
 **Step 4: Wait & Monitor**
@@ -422,6 +479,8 @@ curl http://localhost:5000/api/backtests/abc-123-def \
 ```
 
 **Step 6: Test Parameter Variations**
+
+*Bash/Linux:*
 ```bash
 # Test with tighter stop loss (1.0x ATR instead of 1.5x)
 curl -X POST http://localhost:5000/api/backtests \
@@ -443,11 +502,25 @@ curl -X POST http://localhost:5000/api/backtests \
       "stop_loss_atr": 1.0
     }
   }'
+```
 
-# run_id: xyz-456-uvw
+*PowerShell:*
+```powershell
+# Test with tighter stop loss (1.0x ATR instead of 1.5x)
+curl.exe -X POST "http://localhost:5000/api/backtests" `
+  -H "X-API-Key: dev_key_12345" `
+  -H "Content-Type: application/json" `
+  -d '{"symbol":"GC","timeframe":"1H","start_date":"2024-01-01","end_date":"2024-12-31","strategy_name":"ZoneReversal-v2","parameters":{"ma_period":20,"risk_pct":1.5,"zone_sensitivity":0.65,"session_filter":"ASIA","volume_threshold":50,"take_profit_atr":2.0,"stop_loss_atr":1.0}}'
+```
+
+*Response:*
+```
+run_id: xyz-456-uvw
 ```
 
 **Step 7: Compare Results**
+
+*Bash/Linux:*
 ```bash
 # Compare original vs tighter stop loss
 curl -X POST http://localhost:5000/api/backtests/compare \
@@ -456,12 +529,21 @@ curl -X POST http://localhost:5000/api/backtests/compare \
   -d '{
     "run_ids": ["abc-123-def", "xyz-456-uvw"]
   }'
-
-# Response includes:
-# - Equity curves overlaid (see which is better)
-# - Parameter differences highlighted
-# - Metrics side-by-side (win rate, Sharpe, drawdown)
 ```
+
+*PowerShell:*
+```powershell
+# Compare original vs tighter stop loss
+curl.exe -X POST "http://localhost:5000/api/backtests/compare" `
+  -H "X-API-Key: dev_key_12345" `
+  -H "Content-Type: application/json" `
+  -d '{"run_ids":["abc-123-def","xyz-456-uvw"]}'
+```
+
+*Response includes:*
+- Equity curves overlaid (see which is better)
+- Parameter differences highlighted
+- Metrics side-by-side (win rate, Sharpe, drawdown)
 
 **Conclusion**: Trader decides which parameter set performs better and deploys to live trading
 
@@ -608,10 +690,19 @@ Every morning at 8 AM:
 
 ### Q: How do I cancel a backtest?
 **A:** 
+
+*Bash/Linux:*
 ```bash
 curl -X POST http://localhost:5000/api/backtests/{runId}/cancel \
   -H "X-API-Key: dev_key_12345"
 ```
+
+*PowerShell:*
+```powershell
+curl.exe -X POST "http://localhost:5000/api/backtests/{runId}/cancel" `
+  -H "X-API-Key: dev_key_12345"
+```
+
 Works only if status is "queued" or "running". Completed backtests cannot be cancelled.
 
 ### Q: My CSV upload failed with validation error
